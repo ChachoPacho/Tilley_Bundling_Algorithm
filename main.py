@@ -183,7 +183,7 @@ def step5(x):
     return x
 
 
-def step6():
+def step6(t):
     """_summary_
     Examine la secuencia de 0’s y 1’s {𝑥(𝑘, 𝑡); 𝑘 = 1, 2, ..., 𝑅}.
     Determine un límite entre los Hold y el Exercise como
@@ -194,8 +194,28 @@ def step6():
     entre la espera y el ejercicio se define como la secuencia de 0’s y
     1’s que comienza con el primer 1 y termina con el último 0.
     """
+    count_0s = 0
+    shrap_Boundary= (0,0)
+    def isCero(x):
+        return x == 0
+    k = 0
+    while(k <= R):
+        if isCero(x[k,t]):
+            count_0s +=  1
+        else:
+            c_0 = 0
+            for c_0 in range(count_0s):
+                
+                if isCero(x[c_0+k,t]):
+                    break  # se encontro un 0 antes de recorrer terminar count_0s
 
-    return
+                count_0s =- 1 
+                if count_0s < 0:  #si  count_0s es negativo es porque se desconto mas 1s que los 0s que hay
+                    ks[t] = k  #lugar donde occurre el primer 1 del strings_1s
+                    break
+            k =+ c_0
+        k =+ 1
+    return 
 
 
 def step7():
