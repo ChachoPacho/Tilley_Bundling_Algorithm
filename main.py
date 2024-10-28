@@ -1,75 +1,5 @@
 import numpy as np
 
-ALLOW_INMEDIATE_EXERCISE = False
-
-# Tipo de opción
-isCall = False
-
-# Tiempo de simulación
-t = 0
-
-# Tiempo de simulación total
-N = 100
-
-# Caminos
-R = 1000
-
-# Precio del subyascente del camino i en tiempo j
-S = np.zeros((R, N))
-
-# Valor en el camino k en tiempo t de un pago
-# con madurez en t+1
-d = np.zeros((R, N))
-
-# Valor presente en tiempo 0 de un pago en tiempo
-# t del camino 𝑘, calculado mediante el producto
-# de los factores de descuento 𝑑(𝑘,𝑠)
-D = np.zeros((R, N))
-
-# Precio de ejercicio de la opción en tiempo i
-X = np.zeros(N)
-
-# Número de armados
-Q = 10
-
-# Número de caminos en cada armado
-P = R / Q
-
-# Indicadora de ejercicio de la opción en tiempo i en el camino k
-z = np.zeros((R, N))
-
-# Indicadora temporal de ejercicio de la opción en tiempo i en el camino k
-x = np.zeros((R, N))
-
-# Indicadora temporal de ejercicio de la opción en tiempo i en el camino k
-y = np.zeros((R, N))
-
-# Indicadora de sharp boundary
-ks = np.zeros(N)
-
-
-def Intrinsic(k, i, isCall):
-    """
-    Valor intrínseco de la opción en tiempo i en el camino k
-    """
-    if isCall:
-        return max(0, S[k, i] - X[i])
-    else:
-        return max(0, X[i] - S[k, i])
-
-
-# Valor de retención de la opción en tiempo i en el camino k
-H = np.zeros((R, N))
-
-# Valor actual de la opción en tiempo i en el camino k
-V = np.zeros((R, N + 1))
-for k in range(R):
-    V[k][N] = Intrinsic(k, N, isCall)
-
-# Estimación de Ejercicio-o-Retención: 𝑧
-for k in range(R):
-    z[k][N - 1] = (Intrinsic(k, N - 1, isCall) > 0)
-
 
 def mergeSort(arr, comp):
     if len(arr) <= 1:
@@ -103,165 +33,233 @@ def merge(left, right, comp):
     return result
 
 
-def isCallComp(x, y):
-    return x[N - 1] > y[N - 1]
+def makeCallComp(t):
+    return lambda x, y: x[t] > y[t]
 
 
-def isPutComp(x, y):
-    return x[N - 1] < y[N - 1]
+def makePutComp(t):
+    return lambda x, y: x[t] < y[t]
 
 
-def step1(S):
-    """_summary_
-    Reordenar las rutas de precios de las acciones por precio de las acciones,
-    desde el precio más bajo hasta el precio más alto para una opción de compra
-    o desde el precio más alto hasta el precio más bajo para una opción de
-    venta.
-    Reindexar las rutas de 1 a 𝑅 según el reordenamiento.
-    """
+class TilleyBundlingAlgorithm:
 
-    comp = isCallComp if isCall else isPutComp
-    S = mergeSort(S, comp)
+    ALLOW_INMEDIATE_EXERCISE = False
 
-    return S
+    def __init__(self, isCall, N, R):
+        # Tipo de opción
+        self.isCall = isCall
 
+        # Tiempo de simulación
+        self.t = 0
 
-def step2():
-    """_summary_
-    Para cada ruta 𝑘, calcule el valor intrínseco 𝐼(𝑘, 𝑡) de la opción.
-    """
+        # Tiempo de simulación total
+        self.N = N
 
-    return
+        # Caminos
+        self.R = R
 
+        # Precio del subyascente del camino i en tiempo j
+        self.S = np.zeros((R, N))
 
-def step3():
-    """_summary_
-    Dividir el conjunto de 𝑅 caminos ordenados en 𝑄 distintos armados de
-    𝑃 caminos cada uno. Asignar los primeros 𝑃 caminos al primer haz,
-    los segundos 𝑃 caminos al segundo haz, y así sucesivamente,
-    y finalmente los últimos 𝑃 camino al 𝑄-ésimo haz.
-    """
+        # VAlor intrínseco de la opción en tiempo i en el camino k
+        self.Intrinsic = np.zeros((R, N))
 
-    return
+        # Valor en el camino k en tiempo t de un pago
+        # con madurez en t+1
+        self.d = np.zeros((R, N))
 
+        # Valor presente en tiempo 0 de un pago en tiempo
+        # t del camino 𝑘, calculado mediante el producto
+        # de los factores de descuento 𝑑(𝑘,𝑠)
+        self.D = np.zeros((R, N))
 
-def step4(P):
-    """_summary_
-    Para cada ruta 𝑘, el “valor de retención” de la opción 𝐻(𝑘, 𝑡)
-    se calcula como la siguiente expectativa matemática tomada
-    sobre todas las rutas en el paquete que contiene la ruta 𝑘
-    """
+        # Precio de ejercicio de la opción en tiempo i
+        self.X = np.zeros(self.N)
 
-    totalsSumsV = np.zeros((Q, N))
-    for t in range(N):
-        for i in range(Q):
-            low = i * P
+        # Número de armados
+        self.Q = 10
 
-            for j in range(low, low + P):
-                totalsSumsV[i][t] += V[j][t + 1]
+        # Número de caminos en cada armado
+        self.P = R / self.Q
 
-    for t in range(N):
-        for i in range(Q):
-            low = i * P
+        # Indicadora de ejercicio de la opción en tiempo i en el camino k
+        self.z = np.zeros((R, N))
 
-            for k in range(low, low + P):
-                H[k][t] = d[k][t] * totalsSumsV[i][t] / P
+        # Indicadora temporal de ejercicio de la opción en
+        # tiempo i en el camino k
+        self.x = np.zeros((R, N))
 
-    return
+        # Indicadora temporal de ejercicio de la opción en
+        # tiempo i en el camino k
+        self.y = np.zeros((R, N))
 
+        # Indicadora de sharp boundary
+        self.ks = np.zeros(self.N)
 
-def step5(x):
-    """_summary_
-    Para cada ruta, compare el valor de retención 𝐻(𝑘, 𝑡) con el valor
-    intrínseco 𝐼(𝑘, 𝑡) y decida “provisionalmente” si ejercer o mantener.
-    """
+        # Valor de retención de la opción en tiempo i en el camino k
+        self.H = np.zeros((R, N))
 
-    for k in range(R):
-        for t in range(N):
-            x[k][t] = (Intrinsic(k, t, isCall) > H[k][t])
-
-    return x
-
-
-def step6(t):
-    """_summary_
-    Examine la secuencia de 0’s y 1’s {𝑥(𝑘, 𝑡); 𝑘 = 1, 2, ..., 𝑅}.
-    Determine un límite entre los Hold y el Exercise como
-    el inicio de la primera cadena de 1’s cuya longitud exceda
-    la longitud de cada cadena posterior de 0. Sea 𝑘∗(𝑡)(t) el
-    índice de ruta (en la muestra, tal como se ordenó en el subpaso 1
-    anterior) del 1 principal en dicha cadena. La “zona de transición”
-    entre la espera y el ejercicio se define como la secuencia de 0’s y
-    1’s que comienza con el primer 1 y termina con el último 0.
-    """
-    count_0s = 0
-    shrap_Boundary= (0,0)
-    def isCero(x):
-        return x == 0
-    k = 0
-    while(k <= R):
-        if isCero(x[k,t]):
-            count_0s +=  1
+        # Valor actual de la opción en tiempo i en el camino k
+        self.V = np.zeros((R, N + 1))
+        t = N - 1
+        if isCall:
+            for k in range(R):
+                self.V[k][self.N] = max(0, self.S[k, t] - self.X[t])
         else:
-            c_0 = 0
-            for c_0 in range(count_0s):
-                
-                if isCero(x[c_0+k,t]):
-                    break  # se encontro un 0 antes de recorrer terminar count_0s
+            for k in range(R):
+                self.V[k][self.N] = max(0, self.X[t] - self.S[k, t])
 
-                count_0s =- 1 
-                if count_0s < 0:  #si  count_0s es negativo es porque se desconto mas 1s que los 0s que hay
-                    ks[t] = k  #lugar donde occurre el primer 1 del strings_1s
-                    break
-            k =+ c_0
-        k =+ 1
-    return 
+    def step1(self, t):
+        """_summary_
+        Reordenar las rutas de precios de las acciones por precio de
+        las acciones, desde el precio más bajo hasta el precio más alto
+        para una opción de compra o desde el precio más alto hasta el precio
+        más bajo para una opción de venta.
+        Reindexar las rutas de 1 a R según el reordenamiento.
+        """
 
+        comp = makeCallComp(t) if self.isCall else makePutComp(t)
+        return mergeSort(self.S, comp)
 
-def step7():
-    """_summary_
-    Defina una nueva variable indicadora de ejercicio o retención 𝑦(𝑘, 𝑡)
-    que incorpore el límite de la siguiente manera:
-    """
-    
-    for k in range(R):
-        for t in range(N):
-            y[k][t] = (k >= ks[t])
+    def step2(self, t):
+        """_summary_
+        Para cada ruta 𝑘, calcule el valor intrínseco I(k, t) de la opción.
+        """
 
-    return
+        if self.isCall:
+            for k in range(self.R):
+                self.Intrinsic[k][t] = max(0, self.S[k, t] - self.X[t])
+        else:
+            for k in range(self.R):
+                self.Intrinsic[k][t] = max(0, self.X[t] - self.S[k, t])
 
+        return
 
-def step8(y):
-    """_summary_
-    Para cada camino 𝑘, se define el valor actual
-    de 𝑉(𝑘, 𝑡) de la opción como
-    """
+    def step3(self, t):
+        """_summary_
+        Dividir el conjunto de R caminos ordenados en Q distintos armados de
+        P caminos cada uno. Asignar los primeros P caminos al primer haz,
+        los segundos P caminos al segundo haz, y así sucesivamente,
+        y finalmente los últimos P camino al Q-ésimo haz.
+        """
 
-    for k in range(R):
-        for t in range(N):
-            if y[k][t]:
-                V[k][t] = Intrinsic(k, t, isCall)
+        return
+
+    def step4(self, t):
+        """_summary_
+        Para cada ruta k, el “valor de retención” de la opción H(k, t)
+        se calcula como la siguiente expectativa matemática tomada
+        sobre todas las rutas en el paquete que contiene la ruta k
+        """
+
+        totalsSumsV = np.zeros((self.Q, self.N))
+        for i in range(self.Q):
+            low = i * self.P
+
+            for j in range(low, low + self.P):
+                totalsSumsV[i][t] += self.V[j][t + 1]
+
+        for i in range(self.Q):
+            low = i * self.P
+
+            for k in range(low, low + self.P):
+                self.H[k][t] = self.d[k][t] * totalsSumsV[i][t] / self.P
+
+        return
+
+    def step5(self, t):
+        """_summary_
+        Para cada ruta, compare el valor de retención H(k, t) con el valor
+        intrínseco I(k, t) y decida “provisionalmente” si ejercer o mantener.
+        """
+
+        for k in range(self.R):
+            self.x[k][t] = (self.Intrinsic[k][t] > self.H[k][t])
+
+        return
+
+    def step6(self, t):
+        """_summary_
+        Examine la secuencia de 0’s y 1’s {𝑥(𝑘, 𝑡); 𝑘 = 1, 2, ..., 𝑅}.
+        Determine un límite entre los Hold y el Exercise como
+        el inicio de la primera cadena de 1’s cuya longitud exceda
+        la longitud de cada cadena posterior de 0. Sea 𝑘∗(𝑡)(t) el
+        índice de ruta (en la muestra, tal como se ordenó en el subpaso 1
+        anterior) del 1 principal en dicha cadena. La “zona de transición”
+        entre la espera y el ejercicio se define como la secuencia de 0’s y
+        1’s que comienza con el primer 1 y termina con el último 0.
+        """
+
+        q0s = 0
+        q1s = 0
+        maxQ0s = 0
+        iOfSharp1 = -1
+        for k in range(self.R - 1, -1, -1):
+            if self.x[k][t] == 0:
+                q0s += 1
+
+                if q1s >= maxQ0s and q0s == 1:
+                    iOfSharp1 = k + 1
+
+                q1s = 0
             else:
-                V[k][t] = H[k][t]
+                q1s += 1
 
-    return
+                if q0s > maxQ0s:
+                    maxQ0s = q0s
 
+                q0s = 0
 
-def estimateExerciseOrHold():
-    lowBoundary = -1 if ALLOW_INMEDIATE_EXERCISE else 0
-    
-    for t in range(N - 1, lowBoundary, -1):
-        S = step1(S)
-        step2()
-        step3()
-        step4(P)
-        x = step5(x)
-        step6()
-        step7()
-        step8(y)
+        self.ks[t] = iOfSharp1
 
+        return
 
+    def step7(self, t):
+        """_summary_
+        Defina una nueva variable indicadora de ejercicio o retención y(k, t)
+        que incorpore el límite de la siguiente manera:
+        """
 
-# Estimador de la Prima
-# Primero hay que calcular todos los 𝐷(𝑘, 𝑡) para luego poder hacer el promedio
-PremiumEstimator = 0
+        for k in range(self.R):
+            self.y[k][t] = (k >= self.ks[t])
+
+        return
+
+    def step8(self, t):
+        """_summary_
+        Para cada camino k, se define el valor actual
+        de V(k, t) de la opción como
+        """
+
+        for k in range(self.R):
+            if self.y[k][t]:
+                self.V[k][t] = self.Intrinsic[k][t]
+            else:
+                self.V[k][t] = self.H[k][t]
+
+        return
+
+    def estimateExerciseOrHold(self):
+        lowBoundary = -1 if self.ALLOW_INMEDIATE_EXERCISE else 0
+
+        for t in range(self.N - 1, lowBoundary, -1):
+            self.step1(t)
+            self.step2(t)
+            self.step3(t)
+            self.step4(t)
+            self.step5(t)
+            self.step6(t)
+            self.step7(t)
+            self.step8(t)
+
+        return
+
+    def estimatePremiumEstimator(self):
+        self.estimateExerciseOrHold()
+
+        total = 0
+        for k in range(self.R):
+            for t in range(self.N):
+                total += self.z[k][t] * self.Intrinsic[k][t] * self.D[k][t]
+
+        return total / self.R
