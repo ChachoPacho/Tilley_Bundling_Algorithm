@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 
 def mergeSort(arr, comp):
@@ -20,10 +21,10 @@ def merge(left, right, comp):
     i = j = 0
 
     while i < len(left) and j < len(right):
-        if comp(left[i], right[j]):
+        if comp(left[i], right[j]):  # left[i] <= right[j]
             result.append(left[i])
             i += 1
-        else:
+        else:                        # left[i] > right[j]
             result.append(right[j])
             j += 1
 
@@ -42,7 +43,6 @@ def generatePaths(R, N):
     - S0: Precio inicial de la acción
     - r: Tasa de interés anual efectiva constante
     - sigma: Volatilidad logarítmica (30% en este caso)
-    - T: Horizonte temporal en años
     - N: Número de pasos en el tiempo
     - R: Número de trayectorias simuladas
 
@@ -50,11 +50,13 @@ def generatePaths(R, N):
     - Un array con las trayectorias simuladas del precio.
     """
     sigma = 0.3   # Volatilidad logarítmica
-    T = 1 / 4     # Horizonte temporal
     S0 = 40       # Precio inicial de la acción
     r = 0.07      # Tasa de interés anual efectiva constante
+    T = 3
 
-    dt = T / (N - 1)    # Tamaño del paso en el tiempo
+    dt = T / (N - 1)
+
+    # interestRate = (1 + r) ** (1 / 4) - 1
 
     # Media ajustada
     mu = np.log(1 + r) - 0.5 * sigma**2
@@ -67,6 +69,8 @@ def generatePaths(R, N):
     for i in range(1, N):
         Z = np.random.normal(0, 1, R)  # Variable aleatoria normal estándar
         S[:, i] = S[:, i - 1] * np.exp(mu * dt + sigma * np.sqrt(dt) * Z)
+        # Z = np.random.normal(mu, sigma, R)
+        # S[:, i] = S[:, i - 1] * Z
 
     return S
 
@@ -102,6 +106,11 @@ class TilleyBundlingAlgorithm:
         # Caminos
         self.R = int(P * Q)
 
+        # Reindex of S
+        self.reindex = np.zeros(self.R, dtype=int)
+        for i in range(self.R):
+            self.reindex[i] = i
+
     def setS(self, S: np.array):
         if S.shape[0] != self.R or S.shape[1] != self.N:
             raise ValueError("Invalid shape for S")
@@ -135,25 +144,22 @@ class TilleyBundlingAlgorithm:
         R = self.R
         N = self.N
 
-        # VAlor intrínseco de la opción en tiempo i en el camino k
-        self.Intrinsic = np.zeros((R, N))
+        # Indicadora temporal de ejercicio de la opción en
+        # tiempo i en el camino k
+        self.x = np.zeros((R, N), dtype=int)
 
         # Indicadora temporal de ejercicio de la opción en
         # tiempo i en el camino k
-        self.x = np.zeros((R, N))
-
-        # Indicadora temporal de ejercicio de la opción en
-        # tiempo i en el camino k
-        self.y = np.zeros((R, N))
+        self.y = np.zeros((R, N), dtype=int)
 
         # Indicadora de sharp boundary
-        self.ks = np.zeros(self.N)
+        self.ks = np.zeros(self.N, dtype=int)
 
         # Valor de retención de la opción en tiempo i en el camino k
-        self.H = np.zeros((R, N))
+        self.H = np.zeros((R, N), dtype=float)
 
         # Valor actual de la opción en tiempo i en el camino k
-        self.V = np.zeros((R, N + 1))
+        self.V = np.zeros((R, N + 1), dtype=float)
 
         t = N - 1
         if self.isCall:
@@ -165,18 +171,20 @@ class TilleyBundlingAlgorithm:
 
         # Valor en el camino k en tiempo t de un pago
         # con madurez en t + 1
-        self.d = np.zeros((R, N))
+        self.d = np.zeros((R, N), dtype=float)
 
         # Valor presente en tiempo 0 de un pago en tiempo
         # t del camino k, calculado mediante el producto
         # de los factores de descuento d(k, s)
-        self.D = np.full((R, N), 1)
-
+        self.D = np.full((R, N), 1, dtype=float)
         self.__calcDs()
 
-        # Indicadora de ejercicio de la opción en tiempo i en el camino k
-        self.z = np.zeros((R, N))
+        # Valor intrínseco de la opción en tiempo i en el camino k
+        self.Intrinsic = np.zeros((R, N), dtype=float)
+        self.__calcIntrinsic()
 
+        # Indicadora de ejercicio de la opción en tiempo i en el camino k
+        self.z = np.zeros((R, N), dtype=int)
         self.__estimateExerciseOrHold()
 
         return
@@ -220,6 +228,16 @@ class TilleyBundlingAlgorithm:
 
         return
 
+    def __calcIntrinsic(self):
+        if self.isCall:
+            for k in range(self.R):
+                for t in range(self.N):
+                    self.Intrinsic[k][t] = max(0, self.S[k][t] - self.X[t])
+        else:
+            for k in range(self.R):
+                for t in range(self.N):
+                    self.Intrinsic[k][t] = max(0, self.X[t] - self.S[k][t])
+
     def __step1(self, t):
         """_summary_
         Reordenar las rutas de precios de las acciones por precio de
@@ -230,21 +248,20 @@ class TilleyBundlingAlgorithm:
         """
 
         if self.isCall:
-            self.S = mergeSort(self.S, lambda x, y: x[t] > y[t])
+            self.reindex = mergeSort(
+                self.reindex,
+                lambda x, y: self.S[x][t] < self.S[y][t]
+            )
         else:
-            self.S = mergeSort(self.S, lambda x, y: x[t] < y[t])
+            self.reindex = mergeSort(
+                self.reindex,
+                lambda x, y: self.S[x][t] > self.S[y][t]
+            )
 
     def __step2(self, t):
         """_summary_
-        Para cada ruta 𝑘, calcule el valor intrínseco I(k, t) de la opción.
+        Para cada ruta k, calcule el valor intrínseco I(k, t) de la opción.
         """
-
-        if self.isCall:
-            for k in range(self.R):
-                self.Intrinsic[k][t] = max(0, self.S[k][t] - self.X[t])
-        else:
-            for k in range(self.R):
-                self.Intrinsic[k][t] = max(0, self.X[t] - self.S[k][t])
 
         return
 
@@ -265,17 +282,19 @@ class TilleyBundlingAlgorithm:
         sobre todas las rutas en el paquete que contiene la ruta k
         """
 
-        totalsSumsV = np.zeros((self.Q, self.N))
+        totalsSumsV = np.zeros((self.Q, self.N), dtype=float)
         for i in range(self.Q):
             low = i * self.P
 
-            for j in range(low, low + self.P):
-                totalsSumsV[i][t] += self.V[j][t + 1]
+            for index in range(low, low + self.P):
+                k = self.reindex[index]
+                totalsSumsV[i][t] += self.V[k][t + 1]
 
         for i in range(self.Q):
             low = i * self.P
 
-            for k in range(low, low + self.P):
+            for index in range(low, low + self.P):
+                k = self.reindex[index]
                 self.H[k][t] = self.d[k][t] * totalsSumsV[i][t] / self.P
 
         return
@@ -307,12 +326,14 @@ class TilleyBundlingAlgorithm:
         q1s = 0
         maxQ0s = 0
         iOfSharp1 = -1
-        for k in range(self.R - 1, -1, -1):
+        for index in range(self.R - 1, -1, -1):
+            k = self.reindex[index]
+
             if self.x[k][t] == 0:
                 q0s += 1
 
-                if q1s >= maxQ0s and q0s == 1:
-                    iOfSharp1 = k + 1
+                if q1s >= maxQ0s and q0s == 1 and index != self.R - 1:
+                    iOfSharp1 = self.reindex[index + 1]
 
                 q1s = 0
             else:
@@ -358,8 +379,8 @@ class TilleyBundlingAlgorithm:
         # t = Tiempo de simulación
         for t in range(self.N - 1, lowBoundary, -1):
             self.__step1(t)
-            self.__step2(t)
-            self.__step3(t)
+            # self.__step2(t)
+            # self.__step3(t)
             self.__step4(t)
             self.__step5(t)
             self.__step6(t)
@@ -392,8 +413,10 @@ class TilleyBundlingAlgorithm:
 
 
 if __name__ == "__main__":
+    t0 = time.time()
+    
     # Tiempo de simulación total
-    N = int((3 * 12) / 4)
+    N = int((3 * 12) / 4) + 1
 
     # Número de caminos en cada armado
     P = 72
@@ -426,5 +449,7 @@ if __name__ == "__main__":
     TBA.setInterestRate(interestRate)
 
     PremiumEstimator = TBA.estimatePremiumEstimator()
+    t1 = time.time()
 
     print(PremiumEstimator)
+    print(t1 - t0)
