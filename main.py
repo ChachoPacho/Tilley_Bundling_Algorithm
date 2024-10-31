@@ -1,40 +1,10 @@
 import numpy as np
 import time
+import math
 import matplotlib.pyplot as plt
-from tests.SByBinomial import generateSByBinomial
+import matplotlib.gridspec as gridspec
+from tests.SByBinomial import generateSByBinomial, generatePrimeByBinomial
 from tests.SByGeometricBrownianMotion import generateSByGeometricBrownianMotion
-
-
-def mergeSort(arr, comp):
-    if len(arr) <= 1:
-        return arr
-
-    mid = len(arr) // 2
-    leftHalf = arr[:mid]
-    rightHalf = arr[mid:]
-
-    sortedLeft = mergeSort(leftHalf, comp)
-    sortedRight = mergeSort(rightHalf, comp)
-
-    return merge(sortedLeft, sortedRight, comp)
-
-
-def merge(left, right, comp):
-    result = []
-    i = j = 0
-
-    while i < len(left) and j < len(right):
-        if comp(left[i], right[j]):  # left[i] <= right[j]
-            result.append(left[i])
-            i += 1
-        else:                        # left[i] > right[j]
-            result.append(right[j])
-            j += 1
-
-    result.extend(left[i:])
-    result.extend(right[j:])
-
-    return result
 
 
 class TilleyBundlingAlgorithm:
@@ -120,14 +90,7 @@ class TilleyBundlingAlgorithm:
 
         # Valor actual de la opción en tiempo i en el camino k
         self.V = np.zeros((R, N + 1), dtype=float)
-
-        t = N - 1
-        if self.isCall:
-            for k in range(R):
-                self.V[k][t + 1] = self.Intrinsic[k][t]
-        else:
-            for k in range(R):
-                self.V[k][t + 1] = self.Intrinsic[k][t]
+        self.V[:, N] = self.Intrinsic[:, N - 1]
 
         # Indicadora de ejercicio de la opción en tiempo i en el camino k
         self.z = np.zeros((R, N), dtype=int)
@@ -199,6 +162,8 @@ class TilleyBundlingAlgorithm:
         Para cada ruta k, calcule el valor intrínseco I(k, t) de la opción.
         """
 
+        # Los hicimos todos juntos en __prepare
+
         return
 
     def __step3(self, t):
@@ -208,6 +173,9 @@ class TilleyBundlingAlgorithm:
         los segundos P caminos al segundo haz, y así sucesivamente,
         y finalmente los últimos P camino al Q-ésimo haz.
         """
+
+        # Creamos grupos de [t * p, (t + 1) * p]
+        # Esos van a ser nuestros bundles
 
         return
 
@@ -222,6 +190,7 @@ class TilleyBundlingAlgorithm:
         for _ in range(self.Q):
             end = low + self.P
 
+            # Ésto es un bundle
             indexes = self.reindex[low:end]
             sumTotal = np.sum(self.V[indexes, t + 1])
             self.H[indexes, t] = self.d[indexes, t] * sumTotal / self.P
@@ -314,12 +283,6 @@ class TilleyBundlingAlgorithm:
 
             indexes = self.reindex
 
-            # for q in range(self.Q):
-            #     low = q * self.P
-            #     end = low + self.P
-
-            #     indexes = self.reindex[low:end]
-
             # Indicadora de sharp boundary
             ks = self.__step6(t, indexes)
             self.__step7(t, indexes, ks)
@@ -357,14 +320,11 @@ if __name__ == "__main__":
     S0 = 40
     volatily = 0.3
     T = 3
-    N_sim = 10
+    N_sim = 1000
 
     N = int(4 * T) + 1              # Tiempo de simulación total
     P = 72                          # Número de caminos en cada armado
     Q = 70                          # Número de armados
-    # N = 6                           # Tiempo de simulación total
-    # P = 2                           # Número de caminos en cada armado
-    # Q = 3                           # Número de armados
     R = int(P * Q)                  # Número de caminos
     isCall = False                  # Tipo de opción
 
@@ -374,21 +334,69 @@ if __name__ == "__main__":
 
     TBA = TilleyBundlingAlgorithm(P, Q, T, N, X, r, isCall)
 
-    # Test
-    # S = generateSByBinomial(*args)
-
     t0 = time.time()
     PremiumEstimator = 0
+    Premiums = []
     for _ in range(N_sim):
         S = generateSByGeometricBrownianMotion(*args)
-        PremiumEstimator += TBA.estimatePremiumEstimator(S)
+        Premiums.append(TBA.estimatePremiumEstimator(S))
     t1 = time.time()
 
-    print(PremiumEstimator / N_sim)
-    print(t1 - t0)
+    # print(PremiumEstimator / N_sim, t1 - t0)
 
-    # # Graph S
-    # for i in range(R):
-    #     plt.plot(S[i])
+    # t0 = time.time()
+    premiumBinomial, tree = generatePrimeByBinomial(*args, isCall=isCall)
+    # t1 = time.time()
+    # print(premiumBinomial, t1 - t0)
 
-    # plt.show()
+    fig = plt.figure(constrained_layout=True)
+    gs = gridspec.GridSpec(2, 2, figure=fig)
+
+    # Primer subplot en la esquina superior izquierda
+    ax1 = fig.add_subplot(gs[0, 0])
+    for x in S:
+        ax1.plot(x)
+
+    ax1.set_title("Dist. of stock price movements de CRR")
+
+    # Segundo subplot en la esquina superior derecha
+    ax2 = fig.add_subplot(gs[0, 1])
+    for x in tree:
+        ax2.plot(x)
+    ax2.set_title("Binomial Lattice de CRR")
+
+    # Tercer subplot que ocupa la fila inferior completa
+    ax3 = fig.add_subplot(gs[1, 0])
+    ax3.set_title("Comparación de primas")
+
+    ax3.plot(Premiums, label="Tilley")
+    ax3.set_ylim([7.6, 8.4])
+    
+    ax3.axhline(y=premiumBinomial, color='r', linestyle='--',
+                label="Binomial CRR")
+
+    ax3.axhline(y=np.mean(Premiums), color='g', linestyle='--',
+                label="Tilley (mean)")
+
+    ax3.legend()
+
+    # Tercer subplot que ocupa la fila inferior completa
+    ax4 = fig.add_subplot(gs[1, 1])
+    ax4.set_title("Comparación de primas")
+
+    ax4.axvline(x=premiumBinomial, color='r', linestyle='--', label="Binomial CRR")
+        
+    num_grupos = 100
+    conteos, bordes = np.histogram(Premiums, bins=num_grupos)
+
+    # Posiciones en el eje X para las barras (usar los centros de los bordes)
+    x = (bordes[:-1] + bordes[1:]) / 2
+
+    ax4.hist(x, bins=num_grupos, weights=conteos, label="Tilley")
+
+    ax4.set_ylim([0, 40])
+    ax4.set_xlim([7.6, 8.4])
+
+    ax4.legend()
+
+    plt.savefig('output.png', dpi=300, bbox_inches='tight')
