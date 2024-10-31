@@ -4,24 +4,6 @@ El `Método de Tilley` es un método de `Monte Carlo` que utiliza una estrategia
 
 Investigar sobre este algoritmo y realizar una implementación.
 
-## Referencias
-
-[Tilley, J. (1993) Valuing American Options in a Path Simulation Model. Transactions of the Society of Actuaries, 45, 83-104.](https://drive.google.com/file/d/1pBzLWTC4jJBOj7R3El49gZ-0IPZU9pdu/view?pli=1)
-
-# Resumen
-
-Sección 2: A little background on options is provided. 
-
-Sección 3: The algrithm for valuing American options is described
-
-Sección 4: tested by means of an example. 
-
-Sección 5: The issue of bias in the estimator of the option premium is examined.
-
-Sección 6: The example is revisited. 
-
-Sección 7: summarizes the paper.
-
 ## Algoritmo de valuación de opciones Americanas
 
 - $t_i$ con $i \in \N_0$, donde $t_0$ es el tiempo de origen.
@@ -39,12 +21,12 @@ Sección 7: summarizes the paper.
     $$
     \begin{darray}c
     
-    I(k, t) &=& \begin{cases}
+    I(k, t) &=&  \begin{cases}
     \max[0, S(k, t) - X(t)] & call \\
     
     \max[0, X(t) - S(k, t)] & put \\
     
-    \end{cases}
+    \end{cases} 
     
     \end{darray}
     $$
@@ -161,6 +143,11 @@ $dt$ : Tiempo transcurrido entre cada paso en la simulación..
 
 $Z$ : V.A. con distribución normal estándar $Z∼N(0,1)$.
 
-Se corrio el algoritmo para distintos valores de $α$ $∈(0,1)$, como se puede ver en el siguiente grafico
 
-En la implementacion del algoritmo, se utilizo $α=0.5$, obteniendo $Q=70$ parquetes y $P=72$ caminos por paquete. El precio del subyacente $S(0)=40$, siendo una opcion put Americana con $strike=45$. 
+En la implementacion del algoritmo, se fijo $5040$ caminos por simulacion, con precio del subyacente $S(0)=40$, siendo una opcion put Americana con $strike=45$. 
+
+![EstimacionesGrafico](EstimacionFinalResult.png)
+
+Este es el grafico de los resultado para simulaciones de distintos valores de $α$ $∈(0,1)$. Se puede notar que gracias a la implementacion de los pasos 6 y 7 las estimaciones de la prima de la opción son esencialmente constantes a lo largo de un intervalo para los $α$ $∈(0.2,0.7)$ con un rango de volatilidad de 12 centavos, y sin estos pasos aumenta de manera más o menos constante a medida que se incrementa el $α$ y con un rang 63 centavos.
+
+![BinomialvsTilley](CCRyComparaciondePrima.png)
