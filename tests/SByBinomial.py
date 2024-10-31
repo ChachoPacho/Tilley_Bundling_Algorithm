@@ -7,9 +7,6 @@ def generateSByBinomial(R, N, S0, r, T, volatily, K):
         S0, r, T, N - 1, sigma=volatily, tree_type='CRR')
     ST = tree.underlying_asset_tree()
 
-    option = pyop3.american_option(tree, K)
-    print(option.put())
-
     S = np.zeros((R, N), dtype=float)
 
     # Variable aleatoria normal estándar

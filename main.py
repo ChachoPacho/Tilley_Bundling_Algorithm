@@ -41,24 +41,25 @@ class TilleyBundlingAlgorithm:
 
     ALLOW_INMEDIATE_EXERCISE = False
 
-    def __init__(self, isCall, N):
+    def __init__(self, P, Q, T, N, X, r, isCall):
         # Tipo de opción
         self.isCall = isCall
 
         # Tiempo de simulación total
         self.N = N
 
+        # Tiempo de expiración de la opción
+        self.T = T
+
         # Precio del subyascente del camino i en tiempo j
         self.S = None
 
+        if X.shape[0] != N:
+            raise ValueError("Invalid shape for X")
+
         # Precio de ejercicio de la opción en tiempo i
-        self.X = None
+        self.X = X
 
-        # Interests vars
-        self.r = None
-        self.rs = None
-
-    def setPQ(self, P, Q):
         # Número de armados
         self.Q = Q
 
@@ -68,32 +69,13 @@ class TilleyBundlingAlgorithm:
         # Caminos
         self.R = int(P * Q)
 
-        # Reindex of S
-        self.reindex = np.zeros(self.R, dtype=int)
-        for i in range(self.R):
-            self.reindex[i] = i
-
-    def setS(self, S: np.array):
-        if S.shape[0] != self.R or S.shape[1] != self.N:
-            raise ValueError("Invalid shape for S")
-
-        # Precio del subyascente del camino i en tiempo j
-        self.S = S
-
-    def setX(self, X: np.array):
-        if X.shape[0] != self.N:
-            raise ValueError("Invalid shape for X")
-
-        # Precio de ejercicio de la opción en tiempo i
-        self.X = X
-
-    def setInterestRate(self, r):
+        # Interests vars
         if type(r) is float:
             self.r = r
             self.rs = None
 
         elif type(r) is np.array:
-            if r.shape[0] != self.N:
+            if r.shape[0] != N:
                 raise ValueError("Invalid shape for r")
 
             self.r = None
@@ -101,6 +83,11 @@ class TilleyBundlingAlgorithm:
 
         else:
             raise ValueError("Invalid type for r")
+
+        # Reindex of S
+        self.reindex = np.zeros(R, dtype=int)
+        for i in range(R):
+            self.reindex[i] = i
 
     def __prepare(self):
         R = self.R
@@ -113,9 +100,6 @@ class TilleyBundlingAlgorithm:
         # Indicadora temporal de ejercicio de la opción en
         # tiempo i en el camino k
         self.y = np.zeros((R, N), dtype=int)
-
-        # Indicadora de sharp boundary
-        self.ks = np.zeros(self.N, dtype=int)
 
         # Valor de retención de la opción en tiempo i en el camino k
         self.H = np.zeros((R, N), dtype=float)
@@ -152,16 +136,15 @@ class TilleyBundlingAlgorithm:
         return
 
     def __calcDsWithFloatRate(self):
-        r = 1 + self.r
+        dt = self.T / (self.N - 1)
+        r = 1 / (1 + self.r) ** dt
 
-        self.d.fill(1 / r)
+        self.d.fill(r)
 
         it = 1
         for t in range(1, self.N):
-            it /= r
-
-            for k in range(self.R):
-                self.D[k][t] = it
+            it *= r
+            self.D[:, t] = it
 
         return
 
@@ -193,12 +176,10 @@ class TilleyBundlingAlgorithm:
     def __calcIntrinsic(self):
         if self.isCall:
             for k in range(self.R):
-                for t in range(self.N):
-                    self.Intrinsic[k][t] = max(0, self.S[k][t] - self.X[t])
+                self.Intrinsic[k, :] = np.maximum(0, self.S[k, :] - self.X)
         else:
             for k in range(self.R):
-                for t in range(self.N):
-                    self.Intrinsic[k][t] = max(0, self.X[t] - self.S[k][t])
+                self.Intrinsic[k, :] = np.maximum(0, self.X - self.S[k, :])
 
     def __step1(self, t):
         """_summary_
@@ -209,16 +190,9 @@ class TilleyBundlingAlgorithm:
         Reindexar las rutas de 1 a R según el reordenamiento.
         """
 
-        if self.isCall:
-            self.reindex = mergeSort(
-                self.reindex,
-                lambda x, y: self.S[x][t] < self.S[y][t]
-            )
-        else:
-            self.reindex = mergeSort(
-                self.reindex,
-                lambda x, y: self.S[x][t] > self.S[y][t]
-            )
+        self.reindex = np.argsort(self.S[:, t])
+        if not self.isCall:
+            self.reindex = np.flip(self.reindex)
 
     def __step2(self, t):
         """_summary_
@@ -244,22 +218,15 @@ class TilleyBundlingAlgorithm:
         sobre todas las rutas en el paquete que contiene la ruta k
         """
 
-        low = -self.P
-        totalsSumsV = np.zeros((self.Q, self.N), dtype=float)
-        for i in range(self.Q):
-            low += self.P
+        low = 0
+        for _ in range(self.Q):
+            end = low + self.P
 
-            for index in range(self.P):
-                k = self.reindex[low + index]
-                totalsSumsV[i][t] += self.V[k][t + 1]
+            indexes = self.reindex[low:end]
+            sumTotal = np.sum(self.V[indexes, t + 1])
+            self.H[indexes, t] = self.d[indexes, t] * sumTotal / self.P
 
-        low = -self.P
-        for i in range(self.Q):
-            low += self.P
-
-            for index in range(self.P):
-                k = self.reindex[low + index]
-                self.H[k][t] = self.d[k][t] * totalsSumsV[i][t] / self.P
+            low = end
 
         return
 
@@ -269,12 +236,12 @@ class TilleyBundlingAlgorithm:
         intrínseco I(k, t) y decida “provisionalmente” si ejercer o mantener.
         """
 
-        for k in range(self.R):
-            self.x[k][t] = (self.Intrinsic[k][t] > self.H[k][t])
+        indexes = self.reindex
+        self.x[indexes, t] = (self.Intrinsic[indexes, t] > self.H[indexes, t])
 
         return
 
-    def __step6(self, t):
+    def __step6(self, t, indexes):
         """_summary_
         Examine la secuencia de 0's y 1's {x(k, t); k = 1, 2, ..., R}.
         Determine un límite entre los Hold y el Exercise como
@@ -285,22 +252,21 @@ class TilleyBundlingAlgorithm:
         entre la espera y el ejercicio se define como la secuencia de 0's y
         1's que comienza con el primer 1 y termina con el último 0.
         """
-        
-        print("STEP 6")
+
+        out = len(indexes)
 
         q0s = 0
         q1s = 0
         maxQ0s = 0
-        iOfSharp1 = self.R
-        for i in reversed(range(self.R)):
-            k = self.reindex[i]
+        ks = out
+        for idx, k in enumerate(reversed(indexes)):
+            i = out - idx - 1
+
             if self.x[k][t] == 0:
                 q0s += 1
 
-                if q1s >= maxQ0s and q0s == 1 and i != (R - 1):
-                    iOfSharp1 = i + 1
-                    print("new iOfSharp1", iOfSharp1, i)
-                    print("x", self.x)
+                if q1s >= maxQ0s and q0s == 1 and i != (out - 1):
+                    ks = i + 1
 
                 q1s = 0
             else:
@@ -311,23 +277,16 @@ class TilleyBundlingAlgorithm:
 
                 q0s = 0
 
-        self.ks[t] = iOfSharp1
-        
-        print(iOfSharp1, self.reindex)
+        return ks
 
-        return
-
-    def __step7(self, t):
+    def __step7(self, t, indexes, ks):
         """_summary_
         Defina una nueva variable indicadora de ejercicio o retención y(k, t)
         que incorpore el límite de la siguiente manera:
         """
 
-        for i in range(self.R):
-            k = self.reindex[i]
-            self.y[k][t] = (i >= self.ks[t])
-            
-        print("y\n", self.y)
+        for i, k in enumerate(indexes):
+            self.y[k][t] = (i >= ks)
 
         return
 
@@ -337,11 +296,8 @@ class TilleyBundlingAlgorithm:
         de V(k, t) de la opción como
         """
 
-        for k in range(self.R):
-            if self.y[k][t]:
-                self.V[k][t] = self.Intrinsic[k][t]
-            else:
-                self.V[k][t] = self.H[k][t]
+        self.V[:, t] = np.where(
+            self.y[:, t], self.Intrinsic[:, t], self.H[:, t])
 
         return
 
@@ -355,8 +311,19 @@ class TilleyBundlingAlgorithm:
             # self.__step3(t)
             self.__step4(t)
             self.__step5(t)
-            self.__step6(t)
-            self.__step7(t)
+
+            indexes = self.reindex
+
+            # for q in range(self.Q):
+            #     low = q * self.P
+            #     end = low + self.P
+
+            #     indexes = self.reindex[low:end]
+
+            # Indicadora de sharp boundary
+            ks = self.__step6(t, indexes)
+            self.__step7(t, indexes, ks)
+
             self.__step8(t)
 
         for k in range(self.R):
@@ -364,70 +331,60 @@ class TilleyBundlingAlgorithm:
                 if self.y[k][t]:
                     self.z[k][t] = 1
                     break
-                
-        print("z", self.z)
-        print("Intrinsic", self.Intrinsic)
 
         return
 
-    def estimatePremiumEstimator(self):
-        if self.S is None:
-            raise ValueError("S is not set")
+    def estimatePremiumEstimator(self, S):
+        if S.shape[0] != self.R or S.shape[1] != self.N:
+            raise ValueError("Invalid shape for S")
 
-        if self.X is None:
-            raise ValueError("X is not set")
+        # Precio del subyascente del camino i en tiempo j
+        self.S = S
 
         self.__prepare()
 
-        total = 0
-        for k in range(self.R):
-            for t in range(self.N):
-                total += self.z[k][t] * self.Intrinsic[k][t] * self.D[k][t]
+        totalSum = np.sum(self.z * self.Intrinsic * self.D)
 
-        return total / self.R
+        return totalSum / self.R
 
 
 if __name__ == "__main__":
     np.random.seed(0)
 
-    # N = int((3 * 12) / 4) + 1       # Tiempo de simulación total
-    # P = 72                          # Número de caminos en cada armado
-    # Q = 70                          # Número de armados
-    N = 6                           # Tiempo de simulación total
-    P = 2                           # Número de caminos en cada armado
-    Q = 3                           # Número de armados
-    R = int(P * Q)                  # Número de caminos
-    isCall = False                  # Tipo de opción
-
     # Datos de prueba
-    TEA = 0.07
+    r = 0.07
     K = 45
     S0 = 40
     volatily = 0.3
     T = 3
+    N_sim = 10
+
+    N = int(4 * T) + 1              # Tiempo de simulación total
+    P = 72                          # Número de caminos en cada armado
+    Q = 70                          # Número de armados
+    # N = 6                           # Tiempo de simulación total
+    # P = 2                           # Número de caminos en cada armado
+    # Q = 3                           # Número de armados
+    R = int(P * Q)                  # Número de caminos
+    isCall = False                  # Tipo de opción
 
     # Datos generados
     X = np.full(N, K)
-    interestRate = (1 + TEA) ** (1 / 4) - 1
-    args = (R, N, S0, TEA, T, volatily, K)
+    args = (R, N, S0, r, T, volatily, K)
+
+    TBA = TilleyBundlingAlgorithm(P, Q, T, N, X, r, isCall)
 
     # Test
     # S = generateSByBinomial(*args)
-    S = generateSByGeometricBrownianMotion(*args)
 
     t0 = time.time()
-
-    # Algoritmo de Tilley
-    TBA = TilleyBundlingAlgorithm(isCall, N)
-    TBA.setPQ(P, Q)
-    TBA.setX(X)
-    TBA.setInterestRate(interestRate)
-    TBA.setS(S)
-
-    PremiumEstimator = TBA.estimatePremiumEstimator()
+    PremiumEstimator = 0
+    for _ in range(N_sim):
+        S = generateSByGeometricBrownianMotion(*args)
+        PremiumEstimator += TBA.estimatePremiumEstimator(S)
     t1 = time.time()
 
-    print(PremiumEstimator)
+    print(PremiumEstimator / N_sim)
     print(t1 - t0)
 
     # # Graph S
