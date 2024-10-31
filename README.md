@@ -64,7 +64,6 @@ Premium\ Estimator &=& R^{-1} \sum_{k} \sum_{t} z(k, t) D(k, t) I(k, t)
 \end{darray}
 $$
 
-### Estimación de Ejercicio-o-Retención: $z$
 
 1. Reordenar las rutas de precios de las acciones por precio de las acciones, desde el precio más bajo hasta el precio más alto para una opción de compra o desde el precio más alto hasta el precio más bajo para una opción de venta. Reindexar las rutas de $1$ a $R$ según el reordenamiento.
 2. Para cada ruta $k$, calcule el valor intrínseco $I(k, t)$ de la opción.
@@ -145,3 +144,23 @@ z(k, t) &=& \begin{cases}
 
 \end{darray}
 $$
+
+
+Los $k$ caminos se particionan en $Q$ paquetes y $P$ caminos por paquete. La formula utilzada para obtener estos resultados es $Q = R^{α}$ y $P = R^{1-α}$.
+
+Si se fija un $α$ para el algoritmo, se puede notar que mientras  $R → ∞ $, la estimacion de la prima de converge su valor real, esto se debe a que el algoritmo que determina la decision de $exercise$ o $hold$  se basa en una induccion hacia atras en las opciones Americanas y los errores surgen de que $P$,$Q$ y $R$ sean finitos. Las imprecisiones son, la distribución continua de los precios de las acciones en cada época no se muestrea con suficiente precisión y la esperanza matemática en el subpaso 4 anterior se aproxima mediante un promedio sobre un número finito de trayectoria. Esto se corrige con el tamaño $R$.
+
+A medida que  $R → ∞ $, $x[k,t]$ y $y[k,t]$ (paso 5 y 7) se asemejan,y la zona de transicion se hace cada vez mas pequeña. Cabe aclarar que el los pasos que conlleva definir la zona de transicion (pasos 6) permiten una mejor eficiencia del algoritmo para cualquier $α$ $∈(0,1)$ y aumenta el rango en el cual los  $α$ estiman de manera aceptable a la prima. Generalmente la estimacion de la prima es mas acertada es utilizado el paso 6. Sin embargola convergencia del algoritmo al valor exacto de la prima no depende de la implementacion del paso 6.
+
+La simulación del subyacente se basa en el proceso browniano geométrico,  y se lo ha simulado mediante su discretización , integrando los incrementos generados por un movimiento browniano estándar. En cada paso de tiempo, el cambio en el precio se calcula como:
+    $$S_{t+1}​=S_t​⋅e^{(μ . dt + σ . dt^{0.5}  .Z)} $$
+
+$μ$ : Ajustada para asegurar libre de arbitraje en el movimiento de los valores de $S(t)$ con $μ = log(1 + r) -  σ^2 /2$ 
+
+$dt$ : Tiempo transcurrido entre cada paso en la simulación.. 
+
+$Z$ : V.A. con distribución normal estándar $Z∼N(0,1)$.
+
+Se corrio el algoritmo para distintos valores de $α$ $∈(0,1)$, como se puede ver en el siguiente grafico
+
+En la implementacion del algoritmo, se utilizo $α=0.5$, obteniendo $Q=70$ parquetes y $P=72$ caminos por paquete. El precio del subyacente $S(0)=40$, siendo una opcion put Americana con $strike=45$. 
