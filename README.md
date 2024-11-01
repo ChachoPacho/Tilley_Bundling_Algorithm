@@ -40,7 +40,7 @@ I(k, t) =  \begin{cases}
 $$
     
 - $z(k, t)$ booleano que indica si se ejerció la acción ($1$) o no ($0$) en el camino $k$ en tiempo $t$.
-    - $z(k, t_*) = 1 \Longrightarrow z(k, t) = 0, \forall t \ne t_*$.
+    - $z(k, t_*) = 1 \Longrightarrow z(k, t) = 0, \forall t \ne t_\*$.
 
 ## Estimador de la Prima
 
@@ -64,8 +64,9 @@ $$
 H(k, t) = d(k, t) P^{-1}  \sum_{j \in B_k} V(j, t + 1)
 $$
     
-    > $B_k$ es el armado que contiene el camino $k$.
-    > $V(k, t)$ se define más adelante y se tiene $\forall k, V(k, N) = I(k, N)$.
+> $B_k$ es el armado que contiene el camino $k$.
+
+> $V(k, t)$ se define más adelante y se tiene $\forall k, V(k, N) = I(k, N)$.
 
 5. Para cada ruta, compare el valor de retención $H(k, t)$ con el valor intrínseco $I(k, t)$ y decida “provisionalmente” si ejercer o mantener. 
     
@@ -78,7 +79,7 @@ x(k, t) = \begin{cases}
 \end{cases}
 $$
     
-    > Es un $z$ provisorio.
+> Es un $z$ provisorio.
 
 6. Examine la secuencia de $0$’s y $1$’s $\{x(k, t); k = 1,2..., R\}$. Determine un límite entre los `Hold` y el `Exercise` como el inicio de la primera cadena de $1$’s cuya longitud exceda la longitud de cada cadena posterior de $0$. Sea $k_*(t)$ el índice de ruta (en la muestra, tal como se ordenó en el subpaso $1$ anterior) del $1$ principal en dicha cadena. La “zona de transición” entre la espera y el ejercicio se define como la secuencia de $0$’s y $1$’s que comienza con el primer $1$ y termina con el último $0$.
 7. Defina una nueva variable indicadora de ejercicio o retención $y(k, t)$ que incorpore el límite de la siguiente manera:
@@ -90,7 +91,7 @@ y(k, t) = \begin{cases}
 \end{cases}
 $$
 
-    > Esta indicadora (junto con el paso 6) son la mejora de “transition zone” a “sharp boundary” pero no son estrictamente necesarios, pueden ser reemplazados por la indicadora x (con su respectivo decaimiento en la precisión).
+> Esta indicadora (junto con el paso 6) son la mejora de “transition zone” a “sharp boundary” pero no son estrictamente necesarios, pueden ser reemplazados por la indicadora x (con su respectivo decaimiento en la precisión).
     
 8. Para cada camino $k$, se define el valor actual de $V(k, t)$ de la opción como:
 
