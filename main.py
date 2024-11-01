@@ -430,7 +430,7 @@ if __name__ == "__main__":
     ax1.plot(x_new_without, y_new_without, '-', color='#ff6961', linewidth=2, alpha=0.7, label='withoutSharpBoundary')
     ax1.grid(True, linestyle='--', alpha=0.3)
     ax1.legend(fontsize=10)
-    ax1.set_ylim(6, 12)
+    ax1.set_ylim(6.5, 9.5)
 
     # Bottom plot (sharp boundary)
     #bars2 = ax2.bar(x_values_sharp, y_values_sharp, width=0.01, color='#3498db', alpha=0.7)
@@ -450,7 +450,7 @@ if __name__ == "__main__":
     ax1.set_xlabel('α', fontsize=10, fontweight='bold', labelpad=10)
     ax1.set_ylabel('Prime Estimations', fontsize=10, fontweight='bold', labelpad=10)
     # 1Add more y-axis ticks for better readability
-    ax1.yaxis.set_ticks(np.arange(6, 12.1, 0.5))
+    ax1.yaxis.set_ticks(np.arange(6.5, 10.6, 0.5))
     ax1.tick_params(axis='y', labelsize=8)
     ax1.xaxis.set_ticks(np.arange(0, 1, 0.03))
     ax1.tick_params(axis='x', labelsize=8)
