@@ -1,10 +1,7 @@
 import numpy as np
 import time
-import math
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from tests.SByBinomial import generateSByBinomial, generatePrimeByBinomial
 from tests.SByGeometricBrownianMotion import generateSByGeometricBrownianMotion
+from tests.SByBinomial import generatePrimeByBinomial
 
 
 class TilleyBundlingAlgorithm:
@@ -37,7 +34,7 @@ class TilleyBundlingAlgorithm:
         self.P = P
 
         # Caminos
-        self.R = int(P * Q)
+        self.R = int(5040)
 
         # Interests vars
         if type(r) is float:
@@ -223,27 +220,21 @@ class TilleyBundlingAlgorithm:
         """
 
         out = len(indexes)
-
         q0s = 0
         q1s = 0
         maxQ0s = 0
         ks = out
         for idx, k in enumerate(reversed(indexes)):
             i = out - idx - 1
-
             if self.x[k][t] == 0:
                 q0s += 1
-
                 if q1s >= maxQ0s and q0s == 1 and i != (out - 1):
                     ks = i + 1
-
                 q1s = 0
             else:
                 q1s += 1
-
                 if q0s > maxQ0s:
                     maxQ0s = q0s
-
                 q0s = 0
 
         return ks
@@ -256,7 +247,6 @@ class TilleyBundlingAlgorithm:
 
         for i, k in enumerate(indexes):
             self.y[k][t] = (i >= ks)
-
         return
 
     def __step8(self, t):
@@ -311,6 +301,15 @@ class TilleyBundlingAlgorithm:
         return totalSum / self.R
 
 
+class TilleyBundlingAlgorithmWithoutSharpBoundary(TilleyBundlingAlgorithm):
+    def __step6(self, t, indexes):
+        return None
+
+    def __step7(self, t, indexes, ks):
+        self.y = self.x
+        return
+
+
 if __name__ == "__main__":
     np.random.seed(0)
 
@@ -320,7 +319,7 @@ if __name__ == "__main__":
     S0 = 40
     volatily = 0.3
     T = 3
-    N_sim = 1000
+    N_sim = 1
 
     N = int(4 * T) + 1              # Tiempo de simulación total
     P = 72                          # Número de caminos en cada armado
@@ -335,68 +334,15 @@ if __name__ == "__main__":
     TBA = TilleyBundlingAlgorithm(P, Q, T, N, X, r, isCall)
 
     t0 = time.time()
-    PremiumEstimator = 0
     Premiums = []
     for _ in range(N_sim):
         S = generateSByGeometricBrownianMotion(*args)
         Premiums.append(TBA.estimatePremiumEstimator(S))
     t1 = time.time()
 
-    # print(PremiumEstimator / N_sim, t1 - t0)
+    print(sum(Premiums) / N_sim, t1 - t0)
 
     # t0 = time.time()
-    premiumBinomial, tree = generatePrimeByBinomial(*args, isCall=isCall)
+    # premiumBinomial, tree = generatePrimeByBinomial(*args, isCall=isCall)
     # t1 = time.time()
     # print(premiumBinomial, t1 - t0)
-
-    fig = plt.figure(constrained_layout=True)
-    gs = gridspec.GridSpec(2, 2, figure=fig)
-
-    # Primer subplot en la esquina superior izquierda
-    ax1 = fig.add_subplot(gs[0, 0])
-    for x in S:
-        ax1.plot(x)
-
-    ax1.set_title("Dist. of stock price movements de CRR")
-
-    # Segundo subplot en la esquina superior derecha
-    ax2 = fig.add_subplot(gs[0, 1])
-    for x in tree:
-        ax2.plot(x)
-    ax2.set_title("Binomial Lattice de CRR")
-
-    # Tercer subplot que ocupa la fila inferior completa
-    ax3 = fig.add_subplot(gs[1, 0])
-    ax3.set_title("Comparación de primas")
-
-    ax3.plot(Premiums, label="Tilley")
-    ax3.set_ylim([7.6, 8.4])
-    
-    ax3.axhline(y=premiumBinomial, color='r', linestyle='--',
-                label="Binomial CRR")
-
-    ax3.axhline(y=np.mean(Premiums), color='g', linestyle='--',
-                label="Tilley (mean)")
-
-    ax3.legend()
-
-    # Tercer subplot que ocupa la fila inferior completa
-    ax4 = fig.add_subplot(gs[1, 1])
-    ax4.set_title("Comparación de primas")
-
-    ax4.axvline(x=premiumBinomial, color='r', linestyle='--', label="Binomial CRR")
-        
-    num_grupos = 100
-    conteos, bordes = np.histogram(Premiums, bins=num_grupos)
-
-    # Posiciones en el eje X para las barras (usar los centros de los bordes)
-    x = (bordes[:-1] + bordes[1:]) / 2
-
-    ax4.hist(x, bins=num_grupos, weights=conteos, label="Tilley")
-
-    ax4.set_ylim([0, 40])
-    ax4.set_xlim([7.6, 8.4])
-
-    ax4.legend()
-
-    plt.savefig('output.png', dpi=300, bbox_inches='tight')
