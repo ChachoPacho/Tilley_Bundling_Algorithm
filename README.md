@@ -1,21 +1,35 @@
-# Consigna
+# Índice
 
-El `Método de Tilley` es un método de `Monte Carlo` que utiliza una estrategia de agrupamiento de trayectorias, y puede ser utilizado para valorar opciones americanas como también opciones sobre multiactivos.
+- [Índice](#índice)
+- [Introducción](#introducción)
+- [Desarrollo](#desarrollo)
+  - [Variables a considerar:](#variables-a-considerar)
+  - [Estimador de la Prima](#estimador-de-la-prima)
+  - [Algoritmo](#algoritmo)
+  - [Análisis](#análisis)
+- [Conclusiones](#conclusiones)
+- [Bibliografía](#bibliografía)
 
-Investigar sobre este algoritmo y realizar una implementación.
+# Introducción
 
-## Algoritmo de valuación de opciones Americanas
+El Método de Tilley es un método de **Monte Carlo** que utiliza una estrategia de agrupamiento de trayectorias, y puede ser utilizado para valorar opciones americanas como también opciones sobre multiactivos.
 
-- $t_i$ con $i \in \N_0$, donde $t_0$ es el tiempo de origen.
-- $S(i)$ con $i \in \N_0$, que sería el precio del subyacente en el tiempo $i$.
+El algoritmo utiliza **muestreo estratificado** y un esquema de agrupamiento ("bundling") para estimar el valor de la opción a lo largo de múltiples trayectorias de precios simuladas. En particular, se enfoca en la **regla de ejercicio óptima** (momento óptimo para ejercer la opción) en cada paso del tiempo simulado.
+
+# Desarrollo
+
+## Variables a considerar:
+
+- $t_i$ con $i \in \mathbb N_0$, donde $t_0$ es el tiempo de origen.
+- $S(i)$ con $i \in \mathbb N_0$, que sería el precio del subyacente en el tiempo $i$.
 - Se requiere una muestra finita de $R$ caminos.
 - $S(0), S(k, 1), S(k, 2), \dots, S(k, N)$ es la secuencia del $k$-ésimo camino.
 - $d(k, t)$ es el valor presente en tiempo $t$ del camino $k$ de un pago que ocurre en $t + 1$.
 - $D(k, t)$ es el valor presente en tiempo $0$ de un pago en tiempo $t$ del camino $k$, calculado mediante el producto de los factores de descuento $d(k, s)$ desde $s= 0$ hasta $s= t - 1$.
-- $X(i)$ con $i \in \N$, que sería el precio de ejercicio en tiempo $i$.
+- $X(i)$ con $i \in \mathbb N$, que sería el precio de ejercicio en tiempo $i$.
     
     > Por lo general es una constante.
-    > 
+
 - Valor intrínseco
     
     $$
@@ -34,7 +48,7 @@ Investigar sobre este algoritmo y realizar una implementación.
 - $z(k, t)$ booleano que indica si se ejerció la acción ($1$) o no ($0$) en el camino $k$ en tiempo $t$.
     - $z(k, t_*) = 1 \Longrightarrow z(k, t) = 0, \forall t \ne t_*$.
 
-### Estimador de la Prima
+## Estimador de la Prima
 
 Primero hay que calcular todos los $D(k, t)$ para luego poder hacer el promedio
 
@@ -46,13 +60,14 @@ Premium\ Estimator &=& R^{-1} \sum_{k} \sum_{t} z(k, t) D(k, t) I(k, t)
 \end{darray}
 $$
 
+## Algoritmo
 
 1. Reordenar las rutas de precios de las acciones por precio de las acciones, desde el precio más bajo hasta el precio más alto para una opción de compra o desde el precio más alto hasta el precio más bajo para una opción de venta. Reindexar las rutas de $1$ a $R$ según el reordenamiento.
 2. Para cada ruta $k$, calcule el valor intrínseco $I(k, t)$ de la opción.
 3. Dividir el conjunto de $R$ caminos ordenados en $Q$ distintos armados de $P$ caminos cada uno. Asignar los primeros $P$ caminos al primer haz, los segundos $P$ caminos al segundo haz, y así sucesivamente, y finalmente los últimos $P$ camino al $Q$-ésimo haz. 
     
     > Se supone que $P$ y $Q$ son factores enteros de $R$.
-    > 
+
 4. Para cada ruta $k$, el “valor de retención” de la opción $H(k, t)$ se calcula como la siguiente expectativa matemática tomada sobre todas las rutas en el paquete que contiene la ruta $k$:
     
     $$
@@ -64,10 +79,8 @@ $$
     $$
     
     > $B_k$ es el armado que contiene el camino $k$.
-    > 
-    
     > $V(k, t)$ se define más adelante y se tiene $\forall k, V(k, N) = I(k, N)$.
-    > 
+
 5. Para cada ruta, compare el valor de retención $H(k, t)$ con el valor intrínseco $I(k, t)$ y decida “provisionalmente” si ejercer o mantener. 
     
     Defina una variable indicadora $x(b,t)$ de la siguiente manera:
@@ -85,7 +98,7 @@ $$
     $$
     
     > Es un $z$ provisorio.
-    > 
+
 6. Examine la secuencia de $0$’s y $1$’s $\{x(k, t); k = 1,2..., R\}$. Determine un límite entre los `Hold` y el `Exercise` como el inicio de la primera cadena de $1$’s cuya longitud exceda la longitud de cada cadena posterior de $0$. Sea $k_*(t)$ el índice de ruta (en la muestra, tal como se ordenó en el subpaso $1$ anterior) del $1$ principal en dicha cadena. La “zona de transición” entre la espera y el ejercicio se define como la secuencia de $0$’s y $1$’s que comienza con el primer $1$ y termina con el último $0$.
 7. Defina una nueva variable indicadora de ejercicio o retención $y(k, t)$ que incorpore el límite de la siguiente manera:
     
@@ -100,6 +113,8 @@ $$
     
     \end{darray}
     $$
+
+    > Esta indicadora (junto con el paso 6) son la mejora de “transition zone” a “sharp boundary” pero no son estrictamente necesarios, pueden ser reemplazados por la indicadora x (con su respectivo decaimiento en la precisión).
     
 8. Para cada camino $k$, se define el valor actual de $V(k, t)$ de la opción como:
 
@@ -127,27 +142,24 @@ z(k, t) &=& \begin{cases}
 \end{darray}
 $$
 
+## Análisis
+La elección de los $P$ y $Q$ si bien es arbitraría, las fórmulas $P = R^{a}$ y $Q = R^{1 - a}$ presentan al elemento  que es relevante en la precisión del algoritmo y su fijación sumada a $R \to \infty$, deriva en que la estimación de la prima converja a su valor real. 
 
-Los $k$ caminos se particionan en $Q$ paquetes y $P$ caminos por paquete. La formula utilzada para obtener estos resultados es $Q = R^{α}$ y $P = R^{1-α}$.
+El siguiente gráfico muestra la cercanía del método de Tilley al valor real (línea punteada) para sus implementaciones “transition zone” (línea roja) y “sharp boundary” (línea azul) para distintos:
 
-Si se fija un $α$ para el algoritmo, se puede notar que mientras  $R → ∞ $, la estimacion de la prima de converge su valor real, esto se debe a que el algoritmo que determina la decision de $exercise$ o $hold$  se basa en una induccion hacia atras en las opciones Americanas y los errores surgen de que $P$,$Q$ y $R$ sean finitos. Las imprecisiones son, la distribución continua de los precios de las acciones en cada época no se muestrea con suficiente precisión y la esperanza matemática en el subpaso 4 anterior se aproxima mediante un promedio sobre un número finito de trayectoria. Esto se corrige con el tamaño $R$.
+![Tilley_implementations_comparison](assets/Tilley_implementations_comparison.png)
 
-A medida que  $R → ∞ $, $x[k,t]$ y $y[k,t]$ (paso 5 y 7) se asemejan,y la zona de transicion se hace cada vez mas pequeña. Cabe aclarar que el los pasos que conlleva definir la zona de transicion (pasos 6) permiten una mejor eficiencia del algoritmo para cualquier $α$ $∈(0,1)$ y aumenta el rango en el cual los  $α$ estiman de manera aceptable a la prima. Generalmente la estimacion de la prima es mas acertada es utilizado el paso 6. Sin embargola convergencia del algoritmo al valor exacto de la prima no depende de la implementacion del paso 6.
+Por otro lado, se realizaron pruebas siguiendo ciertas limitaciones paramétricas para facilitar la comparación. Por un lado se estimó la prima utilizando el Binomial Lattice de Cox y Rubinstein (método preciso pero limitado) y por el otro, y empleando los mismos parámetros, se estimó la prima utilizando Tilley y una muestra aleatoria generada por “continuous distribution of stock prices” descrita en el paper de CRR y recomendada por Tilley en sus casos de prueba. Éstas pruebas arrojaron resultados de primas $8.027317961052654$ y $7.917012092274746$ para Tilley y CRR respectivamente, con tiempos $0.06888055801391602$ y $0.04132819175720215$.
 
-La simulación del subyacente se basa en el proceso browniano geométrico,  y se lo ha simulado mediante su discretización , integrando los incrementos generados por un movimiento browniano estándar. En cada paso de tiempo, el cambio en el precio se calcula como:
-    $$S_{t+1}​=S_t​⋅e^{(μ . dt + σ . dt^{0.5}  .Z)} $$
+![CRR_Tilley_comparison](assets/CRR_Tilley_comparison.png)
 
-$μ$ : Ajustada para asegurar libre de arbitraje en el movimiento de los valores de $S(t)$ con $μ = log(1 + r) -  σ^2 /2$ 
+# Conclusiones
 
-$dt$ : Tiempo transcurrido entre cada paso en la simulación.. 
+Si bien el algoritmo de Tilley no es el más eficiente (hemos tenido pruebas 3 veces más lentas que el de CRR), puede partir de condiciones desconocidas y muestras caóticas tal y como se muestra en el gráfico dado y con un margen de error relativamente pequeño, además, se demuestra en el paper que para muestras con un $R$ lo suficientemente grande, Tilley tiende al valor real gracias a su factor de regresión. Sumado a todo ésto, Tilley tiene funciones computacionalmente densas como son el paso 1 y 6, que son fácilmente paralelizables, al igual que todos los procesos de “bundling”.
 
-$Z$ : V.A. con distribución normal estándar $Z∼N(0,1)$.
+Tilley destaca sobre CRR en su versatilidad a la hora de plantear escenarios, permitiendo variabilidad en los intereses en el tiempo y en los caminos, al igual que con los strikes, características que no tienen algoritmos más eficientes como CRR.
 
-
-En la implementacion del algoritmo, se fijo $5040$ caminos por simulacion, con precio del subyacente $S(0)=40$, siendo una opcion put Americana con $strike=45$. 
-
-![EstimacionesGrafico](4Comparaciones.png)
-
-Este es el grafico de los resultado para simulaciones de distintos valores de $α$ $∈(0,1)$. Se puede notar que gracias a la implementacion de los pasos 6 y 7 las estimaciones de la prima de la opción son esencialmente constantes a lo largo de un intervalo para los $α$ $∈(0.2,0.7)$ con un rango de volatilidad de 12 centavos, y sin estos pasos aumenta de manera más o menos constante a medida que se incrementa el $α$ y con un rang 63 centavos.
-
-![BinomialvsTilley](CCRyComparaciondePrima.png)
+# Bibliografía
+1. Tilley, J. (1993) Valuing American Options in a Path Simulation Model. Transactions of the Society of Actuaries, 45, 83-104.
+2. J. C. Cox and M. E. Rubinstein, “Options Markets,” Prentice-Hall, Englewood Cliffs, 1985.
+3. TILLEY, J. A. "An Actuarial Layman's Guide to Building Stochastic Interest Rate Generators," TSA XLIV (1992): 509-564.
