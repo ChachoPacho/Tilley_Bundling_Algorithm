@@ -33,16 +33,10 @@ El algoritmo utiliza **muestreo estratificado** y un esquema de agrupamiento ("b
 - Valor intrínseco
     
     $$
-    \begin{darray}c
-    
-    I(k, t) &=&  \begin{cases}
+    I(k, t) =  \begin{cases}
     \max[0, S(k, t) - X(t)] & call \\
-    
-    \max[0, X(t) - S(k, t)] & put \\
-    
+    \max[0, X(t) - S(k, t)] & put
     \end{cases} 
-    
-    \end{darray}
     $$
     
 - $z(k, t)$ booleano que indica si se ejerció la acción ($1$) o no ($0$) en el camino $k$ en tiempo $t$.
@@ -53,11 +47,7 @@ El algoritmo utiliza **muestreo estratificado** y un esquema de agrupamiento ("b
 Primero hay que calcular todos los $D(k, t)$ para luego poder hacer el promedio
 
 $$
-\begin{darray}c
-
-Premium\ Estimator &=& R^{-1} \sum_{k} \sum_{t} z(k, t) D(k, t) I(k, t)
-
-\end{darray}
+Premium\ Estimator = R^{-1} \sum_{k} \sum_{t} z(k, t) D(k, t) I(k, t)
 $$
 
 ## Algoritmo
@@ -71,11 +61,7 @@ $$
 4. Para cada ruta $k$, el “valor de retención” de la opción $H(k, t)$ se calcula como la siguiente expectativa matemática tomada sobre todas las rutas en el paquete que contiene la ruta $k$:
     
     $$
-    \begin{darray}c
-    
-    H(k, t) &=& d(k, t) P^{-1}  \sum_{j \in B_k} V(j, t + 1)
-    
-    \end{darray}
+    H(k, t) = d(k, t) P^{-1}  \sum_{j \in B_k} V(j, t + 1)
     $$
     
     > $B_k$ es el armado que contiene el camino $k$.
@@ -86,15 +72,10 @@ $$
     Defina una variable indicadora $x(b,t)$ de la siguiente manera:
     
     $$
-    \begin{darray}c
-    
-    x(k, t) &=& \begin{cases}
+    x(k, t) = \begin{cases}
     1 &,& I(k, t) > H(k, t)  \\
-    
-    0 &,& cc  \\
+    0 &,& cc
     \end{cases}
-    
-    \end{darray}
     $$
     
     > Es un $z$ provisorio.
@@ -103,15 +84,10 @@ $$
 7. Defina una nueva variable indicadora de ejercicio o retención $y(k, t)$ que incorpore el límite de la siguiente manera:
     
     $$
-    \begin{darray}c
-    
-    y(k, t) &=& \begin{cases}
+    y(k, t) = \begin{cases}
     1 &,& k \ge k_*(t)  \\
-    
-    0 &,& cc  \\
+    0 &,& cc
     \end{cases}
-    
-    \end{darray}
     $$
 
     > Esta indicadora (junto con el paso 6) son la mejora de “transition zone” a “sharp boundary” pero no son estrictamente necesarios, pueden ser reemplazados por la indicadora x (con su respectivo decaimiento en la precisión).
@@ -119,27 +95,19 @@ $$
 8. Para cada camino $k$, se define el valor actual de $V(k, t)$ de la opción como:
 
     $$
-    \begin{darray}c
-
-    V(k, t) &=& \begin{cases}
+    V(k, t) = \begin{cases}
     I(k t) &,& y(k, t) = 1 \\
     H(k t) &,& y(k, t) = 0
     \end{cases}
-
-    \end{darray}
     $$
 
 Luego de que el algoritmo ha sido procesado hacia atrás desde el tiempo $N$ hasta el tiempo $1$ (o tiempo $0$ si se permite el ejercicio inmediato), la variable indicadora $z(k, t)$ para $t < N$ se estima de la siguiente manera:
 
 $$
-\begin{darray}c
-
-z(k, t) &=& \begin{cases}
+z(k, t) = \begin{cases}
 1 &,& y(k, t) = 1 \land y(k, s) = 0\ \forall s < t \\
 0 &,& cc
 \end{cases}
-
-\end{darray}
 $$
 
 ## Análisis
