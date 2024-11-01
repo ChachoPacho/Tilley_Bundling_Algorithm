@@ -146,7 +146,7 @@ $Z$ : V.A. con distribución normal estándar $Z∼N(0,1)$.
 
 En la implementacion del algoritmo, se fijo $5040$ caminos por simulacion, con precio del subyacente $S(0)=40$, siendo una opcion put Americana con $strike=45$. 
 
-![EstimacionesGrafico](Figure_Estimation.png)
+![EstimacionesGrafico](4Comparaciones.png)
 
 Este es el grafico de los resultado para simulaciones de distintos valores de $α$ $∈(0,1)$. Se puede notar que gracias a la implementacion de los pasos 6 y 7 las estimaciones de la prima de la opción son esencialmente constantes a lo largo de un intervalo para los $α$ $∈(0.2,0.7)$ con un rango de volatilidad de 12 centavos, y sin estos pasos aumenta de manera más o menos constante a medida que se incrementa el $α$ y con un rang 63 centavos.
 
